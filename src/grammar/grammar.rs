@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct NonTerminal {
+    pub index: usize,
     pub name: String,
     pub first: HashSet<usize>,
     pub follow: HashSet<usize>,
@@ -10,8 +11,9 @@ pub struct NonTerminal {
 }
 
 impl NonTerminal {
-    pub fn new(name: String) -> Self {
+    pub fn new(index: usize, name: String) -> Self {
         Self {
+            index,
             name,
             first: HashSet::new(),
             follow: HashSet::new(),
@@ -66,6 +68,16 @@ impl Grammar {
         g
     }
 
+    pub fn terminal_iter(&self) -> impl Iterator<Item = &String> {
+        self.symbols.iter().filter_map(|s| {
+            if let Symbol::Terminal(name) = s {
+                Some(name)
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn non_terminal_iter(&self) -> impl Iterator<Item = &NonTerminal> {
         self.symbols.iter().filter_map(|s| s.non_terminal()).skip(1)
     }
@@ -84,7 +96,7 @@ impl Grammar {
     pub fn add_non_terminal(&mut self, name: &str) -> usize {
         let idx = self.symbols.len();
         self.symbols
-            .push(Symbol::NonTerminal(NonTerminal::new(name.to_string())));
+            .push(Symbol::NonTerminal(NonTerminal::new(idx, name.to_string())));
         self.symbol_table.insert(name.to_string(), idx);
         idx
     }
@@ -109,5 +121,12 @@ impl Grammar {
             Symbol::NonTerminal(e) => e.name.as_str(),
             Symbol::Terminal(e) => e.as_str(),
         }
+    }
+
+    pub fn get_symbol_prime_name(&self, mut name: String) -> String {
+        while self.symbol_table.contains_key(&name) {
+            name.push('\'');
+        }
+        name
     }
 }

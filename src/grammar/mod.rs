@@ -1,3 +1,4 @@
+pub mod eliminate_left_recursion;
 pub mod grammar;
 pub mod nullable_first_follow;
 pub mod parse;
