@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::{grammar::Symbol, Grammar, END_MARK, EPSILON};
+use super::{grammar::Symbol, Grammar, END_MARK};
 
 impl Grammar {
     pub fn calculate_nullable_first_follow(&mut self) {
@@ -22,12 +22,6 @@ impl Grammar {
             nt.first = HashSet::new();
             nt.follow = HashSet::new();
         }
-
-        let epsilon_idx = self.get_symbol_index(EPSILON).unwrap();
-        self.symbols[epsilon_idx]
-            .mut_non_terminal()
-            .unwrap()
-            .nullable = true;
     }
 
     fn calculate_nullable(&mut self) {

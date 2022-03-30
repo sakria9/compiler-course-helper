@@ -67,11 +67,14 @@ impl Grammar {
     }
 
     pub fn non_terminal_iter(&self) -> impl Iterator<Item = &NonTerminal> {
-        self.symbols.iter().filter_map(|s| s.non_terminal())
+        self.symbols.iter().filter_map(|s| s.non_terminal()).skip(1)
     }
 
     pub fn non_terminal_iter_mut(&mut self) -> impl Iterator<Item = &mut NonTerminal> {
-        self.symbols.iter_mut().filter_map(|s| s.mut_non_terminal())
+        self.symbols
+            .iter_mut()
+            .filter_map(|s| s.mut_non_terminal())
+            .skip(1)
     }
 
     pub fn get_symbol_index(&self, name: &str) -> Option<usize> {

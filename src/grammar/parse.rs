@@ -60,7 +60,7 @@ impl Grammar {
             }
         }
 
-        let start_symbol: Option<usize> = if let Some(nt) = g.non_terminal_iter().skip(1).next() {
+        let start_symbol: Option<usize> = if let Some(nt) = g.non_terminal_iter().next() {
             Some(g.symbol_table[&nt.name])
         } else {
             None
