@@ -30,15 +30,22 @@ impl ProductionOutput<'_> {
             return String::new();
         }
 
-        std::iter::once(format!("{} & \\rightarrow &", escape::tex(self.left)))
-            .chain(
-                self.rights
+        let left = format!("{} & \\rightarrow &", escape::tex(self.left)).to_string();
+        let right = self
+            .rights
+            .iter()
+            .map(|right| {
+                right
                     .iter()
-                    .map(|right| escape::tex(right.join(" ")).into_owned())
-                    .collect::<Vec<_>>(),
-            )
+                    .map(|s| escape::tex(*s))
+                    .collect::<Vec<_>>()
+                    .join(" \\ ")
+            })
             .collect::<Vec<_>>()
-            .join(" \\mid ")
+            .join(" \\mid ");
+
+        let output = left + &right;
+        output.replace(super::EPSILON, "\\epsilon")
     }
 }
 
@@ -57,11 +64,11 @@ impl ProductionOutputVec<'_> {
     }
 
     pub fn to_latex(&self) -> String {
-        std::iter::once("\\begin{array}{cll}".to_string())
+        std::iter::once("\\[\\begin{array}{cll}".to_string())
             .chain(self.productions.iter().map(|s| s.to_latex()))
-            .chain(std::iter::once("\\end{array}".to_string()))
+            .chain(std::iter::once("\\end{array}\\]".to_string()))
             .collect::<Vec<String>>()
-            .join("\n")
+            .join("\\\\\n")
     }
 }
 
