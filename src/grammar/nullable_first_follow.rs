@@ -119,37 +119,41 @@ impl Grammar {
     }
 
     fn calculate_follow(&mut self) {
-        fn a_extend_b(a: &HashSet<usize>, b: &HashSet<usize>) {
-            if a == b {
-                return;
-            }
-            let r = a as *const _ as *mut HashSet<usize>;
-            unsafe {
-                (*r).extend(b.iter().cloned());
-            }
-        }
-
         let mut changed = true;
         while changed {
             changed = false;
-            for left in self.non_terminal_iter() {
-                for production in &left.productions {
+            for i in 0..self.symbols.len() {
+                if let Symbol::Terminal(_) = self.symbols[i] {
+                    continue;
+                }
+
+                let productions = self.symbols[i].non_terminal().unwrap().productions.clone();
+                for production in productions {
                     let mut first: HashSet<usize> = HashSet::new();
-                    let mut left_follow = Some(&left.follow);
+                    let mut left_follow =
+                        Some(self.symbols[i].non_terminal().unwrap().follow.clone());
 
                     for i in (0..production.len()).rev() {
-                        match &self.symbols[production[i]] {
+                        match &mut self.symbols[production[i]] {
                             Symbol::Terminal(_) => {
                                 first = HashSet::new();
                                 first.insert(production[i]);
                                 left_follow = None;
                             }
                             Symbol::NonTerminal(nt) => {
-                                left_follow.and_then(|b| Some(a_extend_b(&nt.follow, b)));
-                                a_extend_b(&nt.follow, &first);
+                                let len = nt.follow.len();
+
+                                if let Some(left_follow) = &left_follow {
+                                    nt.follow.extend(left_follow.iter().cloned());
+                                }
+                                nt.follow.extend(first.iter().cloned());
+                                changed |= len != nt.follow.len();
+
                                 if !nt.nullable {
                                     first = nt.first.clone();
                                     left_follow = None;
+                                } else {
+                                    first.extend(nt.first.iter().cloned());
                                 }
                             }
                         }
