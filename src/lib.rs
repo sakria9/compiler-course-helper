@@ -102,3 +102,24 @@ mod parse_tests {
 
 #[cfg(test)]
 mod nullable_first_follow_test {}
+
+#[cfg(test)]
+mod generate_ll1_parsing_table_test {
+    #[test]
+    fn expression_test() {
+        let mut g = crate::Grammar::parse(
+            "
+            E -> T E'
+            E' -> + T E' | ε
+            T -> F T'
+            T' -> * F T' | ε
+            F -> ( E ) | id
+            ",
+        )
+        .unwrap();
+
+        g.calculate_nullable_first_follow();
+        let result = g.generate_ll1_parsing_table();
+        println!("{}", result.to_plaintext());
+    }
+}
