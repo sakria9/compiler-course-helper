@@ -1,3 +1,4 @@
+use crowbook_text_processing::escape::tex as escape_tex;
 use std::collections::HashMap;
 
 use crate::Grammar;
@@ -41,6 +42,36 @@ impl LL1ParsingTable<'_> {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    pub fn to_latex(&self) -> String {
+        let mut header: Vec<String> = vec![format!(
+            "\\[\\begin{{array}}{{c{}}}\n",
+            "|l".repeat(self.terminals.len()),
+        )];
+        header.extend(
+            self.terminals
+                .iter()
+                .map(|&t| format!("\\text{{{}}}", escape_tex(t))),
+        );
+        let header = header.join(" & ");
+
+        let mut output: Vec<String> = Vec::new();
+        for (left, row) in &self.rows {
+            let mut line: Vec<String> = vec![format!("{}", escape_tex(*left))];
+            line.extend(row.iter().map(|productions| {
+                productions
+                    .iter()
+                    .map(|production| production.to_latex(false))
+                    .collect::<Vec<_>>()
+                    .join(" \\mid ")
+            }));
+            output.push(line.join(" & "));
+        }
+
+        let output = output.join("\\\\\n");
+
+        header + "\\\\\\hline\n" + &output + "\n\\end{array}\\]"
     }
 }
 

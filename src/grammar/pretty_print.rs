@@ -25,12 +25,16 @@ impl ProductionOutput<'_> {
             .collect::<Vec<_>>()
             .join("\n")
     }
-    pub fn to_latex(&self) -> String {
+    pub fn to_latex(&self, and_sign: bool) -> String {
         if self.rights.len() == 0 {
             return String::new();
         }
 
-        let left = format!("{} & \\rightarrow &", escape::tex(self.left)).to_string();
+        let left = if and_sign {
+            format!("{} & \\rightarrow &", escape::tex(self.left)).to_string()
+        } else {
+            format!("{} \\rightarrow ", escape::tex(self.left)).to_string()
+        };
         let right = self
             .rights
             .iter()
@@ -65,7 +69,7 @@ impl ProductionOutputVec<'_> {
 
     pub fn to_latex(&self) -> String {
         std::iter::once("\\[\\begin{array}{cll}".to_string())
-            .chain(self.productions.iter().map(|s| s.to_latex()))
+            .chain(self.productions.iter().map(|s| s.to_latex(true)))
             .chain(std::iter::once("\\end{array}\\]".to_string()))
             .collect::<Vec<String>>()
             .join("\\\\\n")
