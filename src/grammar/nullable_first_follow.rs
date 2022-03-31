@@ -52,6 +52,25 @@ impl Grammar {
         }
     }
 
+    pub fn calculate_first_for_production(&self, production: &Vec<usize>) -> HashSet<usize> {
+        let mut first: HashSet<usize> = HashSet::new();
+        for (idx, symbol) in production.iter().map(|i| (*i, &self.symbols[*i])) {
+            match symbol {
+                Symbol::Terminal(_) => {
+                    first.insert(idx);
+                    break;
+                }
+                Symbol::NonTerminal(nt) => {
+                    first.extend(nt.first.iter().cloned());
+                    if !nt.nullable {
+                        break;
+                    }
+                }
+            }
+        }
+        first
+    }
+
     fn calculate_first(&mut self) {
         let mut changed = true;
         while changed {
@@ -63,22 +82,9 @@ impl Grammar {
                         nt.productions
                             .iter()
                             .fold(HashSet::new(), |mut first, production| {
-                                for (idx, symbol) in
-                                    production.iter().map(|i| (*i, &self.symbols[*i]))
-                                {
-                                    match symbol {
-                                        Symbol::Terminal(_) => {
-                                            first.insert(idx);
-                                            break;
-                                        }
-                                        Symbol::NonTerminal(nt) => {
-                                            first.extend(nt.first.iter().cloned());
-                                            if !nt.nullable {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
+                                first.extend(
+                                    self.calculate_first_for_production(production).into_iter(),
+                                );
                                 first
                             })
                     }
@@ -91,6 +97,25 @@ impl Grammar {
                 }
             }
         }
+    }
+
+    pub fn calculate_follow_for_production(&self, production: &Vec<usize>) -> HashSet<usize> {
+        let mut follow = HashSet::new();
+        for idx in production.iter().rev() {
+            match &self.symbols[*idx] {
+                Symbol::Terminal(_) => {
+                    follow.insert(*idx);
+                    break;
+                }
+                Symbol::NonTerminal(nt) => {
+                    follow.extend(nt.follow.iter().cloned());
+                    if !nt.nullable {
+                        break;
+                    }
+                }
+            }
+        }
+        follow
     }
 
     fn calculate_follow(&mut self) {
