@@ -103,8 +103,6 @@ impl Grammar {
             }
 
             if nt.nullable {
-                println!("{} is nullable", left);
-                println!("follow of {}: {:?}", left, nt.follow);
                 for idx in &nt.follow {
                     row[map[idx]].push(ProductionOutput {
                         left,

@@ -56,9 +56,6 @@ impl Grammar {
                 }
             }
 
-            println!("{:?}", nt.productions);
-            println!("{:?}", recursive_productions);
-
             if recursive_productions.len() > 0 {
                 let nt_prime_idx = offset + new_non_terminals.len();
                 for production in &mut nt.productions {
