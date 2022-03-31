@@ -3,13 +3,14 @@ use serde::Serialize;
 
 use super::{Grammar, EPSILON};
 
-struct ProductionOutput<'a> {
-    left: &'a str,
-    rights: Vec<Vec<&'a str>>,
+#[derive(Debug, Clone)]
+pub struct ProductionOutput<'a> {
+    pub left: &'a str,
+    pub rights: Vec<Vec<&'a str>>,
 }
 
 impl ProductionOutput<'_> {
-    fn to_plaintext(&self, left_width: usize) -> String {
+    pub fn to_plaintext(&self, left_width: usize) -> String {
         self.rights
             .iter()
             .map(|right| right.join(" "))
@@ -24,7 +25,7 @@ impl ProductionOutput<'_> {
             .collect::<Vec<_>>()
             .join("\n")
     }
-    fn to_latex(&self) -> String {
+    pub fn to_latex(&self) -> String {
         if self.rights.len() == 0 {
             return String::new();
         }
