@@ -62,6 +62,7 @@ impl Grammar {
 
         let e_idx = g.add_non_terminal(super::EPSILON);
         g.symbols[e_idx].mut_non_terminal().unwrap().nullable = true;
+        g.symbol_table.insert("ε".to_string(), e_idx);
 
         g.add_terminal(super::END_MARK.to_string());
 
