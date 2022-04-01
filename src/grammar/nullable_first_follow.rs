@@ -13,6 +13,8 @@ impl Grammar {
             self.calculate_nullable();
             self.calculate_first();
             self.calculate_follow();
+
+            self.validate_nullable_first_follow();
         }
     }
 

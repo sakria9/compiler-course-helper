@@ -47,6 +47,7 @@ impl Symbol {
 
 #[derive(Debug, Clone)]
 pub struct Grammar {
+    valid_nullable_first_follow: bool,
     pub symbols: Vec<Symbol>,
     pub symbol_table: HashMap<String, usize>,
     pub start_symbol: Option<usize>,
@@ -55,6 +56,7 @@ pub struct Grammar {
 impl Grammar {
     pub fn new() -> Self {
         let mut g = Self {
+            valid_nullable_first_follow: false,
             symbols: Vec::new(),
             symbol_table: HashMap::new(),
             start_symbol: None,
@@ -129,5 +131,18 @@ impl Grammar {
             name.push('\'');
         }
         name
+    }
+
+    pub fn invalidate_nullable_first_follow(&mut self) {
+        self.valid_nullable_first_follow = false;
+        self.reset_nullable_first_follow();
+    }
+
+    pub fn is_nullable_first_follow_valid(&self) -> bool {
+        self.valid_nullable_first_follow
+    }
+
+    pub fn validate_nullable_first_follow(&mut self) {
+        self.valid_nullable_first_follow = true;
     }
 }

@@ -4,6 +4,10 @@ use super::{grammar::NonTerminal, Grammar, EPSILON};
 
 impl Grammar {
     pub fn eliminate_left_recursion(&mut self) {
+        if !self.is_nullable_first_follow_valid() {
+            self.calculate_nullable_first_follow();
+        }
+
         let epsilon_idx = self.get_symbol_index(EPSILON).unwrap();
         let offset = self.symbols.len();
 
@@ -81,5 +85,8 @@ impl Grammar {
             self.symbol_table.insert(nt.name.clone(), nt.index);
             self.symbols.push(super::grammar::Symbol::NonTerminal(nt));
         }
+
+        self.invalidate_nullable_first_follow();
+        self.calculate_nullable_first_follow();
     }
 }

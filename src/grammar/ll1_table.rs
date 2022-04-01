@@ -67,7 +67,11 @@ impl LL1ParsingTable<'_> {
 }
 
 impl Grammar {
-    pub fn generate_ll1_parsing_table(&self) -> LL1ParsingTable {
+    pub fn generate_ll1_parsing_table(&mut self) -> LL1ParsingTable {
+        if !self.is_nullable_first_follow_valid() {
+            self.calculate_nullable_first_follow();
+        }
+
         let terminals: Vec<&str> = self.terminal_iter().map(|t| t.as_str()).collect();
         let map: HashMap<usize, usize> = terminals
             .iter()
