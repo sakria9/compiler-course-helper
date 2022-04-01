@@ -194,6 +194,9 @@ impl Grammar {
                         .map(|idx| self.get_symbol_name(*idx))
                         .collect(),
                 };
+                t.first.sort();
+                t.follow.sort();
+
                 if non_terminal.nullable {
                     t.first.push(EPSILON);
                 }
