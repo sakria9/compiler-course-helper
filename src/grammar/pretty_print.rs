@@ -119,6 +119,24 @@ impl NonTerminalOutput<'_> {
             self.follow.join(", ")
         )
     }
+    fn to_latex(&self) -> String {
+        let first = self.first.join(", ");
+        let follow = self.follow.join(", ");
+
+        let first = escape::tex(first);
+        let follow = escape::tex(follow);
+
+        let first = first.replace(EPSILON, r"$\epsilon$");
+        let follow = follow.replace(EPSILON, r"$\epsilon$");
+
+        format!(
+            "{} & {} & {} & {}",
+            escape::tex(self.name),
+            self.nullable,
+            first,
+            follow
+        )
+    }
 }
 
 #[derive(Serialize)]
@@ -136,6 +154,19 @@ impl NonTerminalOutputVec<'_> {
     }
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap()
+    }
+    pub fn to_latex(&self) -> String {
+        let content = self
+            .data
+            .iter()
+            .map(|e| e.to_latex())
+            .collect::<Vec<_>>()
+            .join("\\\\\n ");
+
+        "\\begin{tabular}{c|c|c|c}\n".to_string()
+            + "Symbol & Nullable & First & Follow\\\\\\hline\n"
+            + &content
+            + "\\\\\n\\end{tabular}"
     }
 }
 
