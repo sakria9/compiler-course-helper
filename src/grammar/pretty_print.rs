@@ -10,7 +10,7 @@ pub struct ProductionOutput<'a> {
 }
 
 impl ProductionOutput<'_> {
-    pub fn to_plaintext(&self, left_width: usize) -> String {
+    pub fn to_plaintext(&self, left_width: usize, multiline: bool) -> String {
         self.rights
             .iter()
             .map(|right| right.join(" "))
@@ -19,11 +19,15 @@ impl ProductionOutput<'_> {
                 if i == 0 {
                     format!("{:>width$} -> {}", self.left, right, width = left_width)
                 } else {
-                    format!("{:>width$}  | {}", "", right, width = left_width)
+                    if multiline {
+                        format!("{:>width$}  | {}", "", right, width = left_width)
+                    } else {
+                        format!(" | {}", right)
+                    }
                 }
             })
             .collect::<Vec<_>>()
-            .join("\n")
+            .join(if multiline { "\n" } else { "" })
     }
     pub fn to_latex(&self, and_sign: bool) -> String {
         if self.rights.len() == 0 {
@@ -62,7 +66,7 @@ impl ProductionOutputVec<'_> {
         let left_max_len = self.productions.iter().map(|p| p.left.len()).max().unwrap();
         self.productions
             .iter()
-            .map(|s| s.to_plaintext(left_max_len))
+            .map(|s| s.to_plaintext(left_max_len, true))
             .collect::<Vec<String>>()
             .join("\n")
     }

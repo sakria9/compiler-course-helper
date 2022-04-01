@@ -7,7 +7,7 @@ use super::{pretty_print::ProductionOutput, EPSILON};
 
 pub struct LL1ParsingTable<'a> {
     terminals: Vec<&'a str>,
-    rows: Vec<(&'a str, Vec<Vec<ProductionOutput<'a>>>)>,
+    rows: Vec<(&'a str, Vec<ProductionOutput<'a>>)>,
 }
 
 impl LL1ParsingTable<'_> {
@@ -17,13 +17,10 @@ impl LL1ParsingTable<'_> {
         let mut output: Vec<Vec<String>> = vec![header];
         for (left, row) in &self.rows {
             let mut line: Vec<String> = vec![left.to_string()];
-            line.extend(row.iter().map(|productions| {
-                productions
-                    .iter()
-                    .map(|production| production.to_plaintext(left.len()))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }));
+            line.extend(
+                row.iter()
+                    .map(|productions| productions.to_plaintext(left.len(), false)),
+            );
             output.push(line);
         }
 
@@ -59,13 +56,7 @@ impl LL1ParsingTable<'_> {
         let mut output: Vec<String> = Vec::new();
         for (left, row) in &self.rows {
             let mut line: Vec<String> = vec![format!("{}", escape_tex(*left))];
-            line.extend(row.iter().map(|productions| {
-                productions
-                    .iter()
-                    .map(|production| production.to_latex(false))
-                    .collect::<Vec<_>>()
-                    .join(" \\mid ")
-            }));
+            line.extend(row.iter().map(|productions| productions.to_latex(false)));
             output.push(line.join(" & "));
         }
 
@@ -84,10 +75,16 @@ impl Grammar {
             .map(|(i, t)| (self.get_symbol_index(t).unwrap(), i))
             .collect();
 
-        let mut rows: Vec<(&str, Vec<Vec<ProductionOutput>>)> = Vec::new();
+        let mut rows: Vec<(&str, Vec<ProductionOutput>)> = Vec::new();
         for nt in self.non_terminal_iter() {
             let left = nt.name.as_str();
-            let mut row: Vec<Vec<ProductionOutput>> = vec![Vec::new(); terminals.len()];
+            let mut row: Vec<ProductionOutput> = vec![
+                ProductionOutput {
+                    left,
+                    rights: Vec::new()
+                };
+                terminals.len()
+            ];
             for production in &nt.productions {
                 let first = self.calculate_first_for_production(production);
 
@@ -95,19 +92,15 @@ impl Grammar {
                     production.iter().map(|idx| self.get_symbol_name(*idx));
 
                 for col in first.iter().map(|idx| map[idx]) {
-                    row[col].push(ProductionOutput {
-                        left,
-                        rights: vec![production_string_iter.clone().collect::<Vec<_>>()],
-                    });
+                    row[col]
+                        .rights
+                        .push(production_string_iter.clone().collect::<Vec<_>>());
                 }
             }
 
             if nt.nullable {
                 for idx in &nt.follow {
-                    row[map[idx]].push(ProductionOutput {
-                        left,
-                        rights: vec![vec![EPSILON]],
-                    });
+                    row[map[idx]].rights.push(vec![EPSILON]);
                 }
             }
 
