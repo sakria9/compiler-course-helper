@@ -124,21 +124,20 @@ impl NonTerminalOutput<'_> {
         )
     }
     fn to_latex(&self) -> String {
-        let first = self.first.join(", ");
-        let follow = self.follow.join(", ");
-
-        let first = escape::tex(first);
-        let follow = escape::tex(follow);
-
-        let first = first.replace(EPSILON, r"$\epsilon$");
-        let follow = follow.replace(EPSILON, r"$\epsilon$");
+        fn f(a: &Vec<&str>) -> String {
+            a.iter()
+                .map(|s| escape::tex(*s))
+                .collect::<Vec<_>>()
+                .join(r"\ ")
+                .replace(EPSILON, r"$\epsilon$")
+        }
 
         format!(
             "{} & {} & {} & {}",
             escape::tex(self.name),
             self.nullable,
-            first,
-            follow
+            f(&self.first),
+            f(&self.follow)
         )
     }
 }
