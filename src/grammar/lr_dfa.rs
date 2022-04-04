@@ -225,8 +225,12 @@ pub enum LRFSMType {
 #[derive(Debug)]
 pub struct LRFSM {
     pub t: LRFSMType,
+    terminals: Vec<String>,
+    non_terminals: Vec<String>,
+
     pub states: Vec<LRItem>,
     pub start: usize,
+    pub end: usize,
     pub follow: Option<HashMap<String, Vec<String>>>,
 }
 
@@ -250,10 +254,14 @@ impl Grammar {
             return Err("start symbol is not set".to_string());
         }
 
+        if t == LRFSMType::LR0 && !self.is_nullable_first_follow_valid() {
+            self.calculate_nullable_first_follow();
+        }
+
         let real_start = self.get_symbol_name(self.start_symbol.unwrap()).to_string();
         let dummy_start = self.get_symbol_prime_name(real_start.clone());
         let mut start_state = LRItem::new(HashSet::from([DotProduction::new(
-            dummy_start,
+            dummy_start.clone(),
             vec![real_start, END_MARK.to_string()],
             if t == LRFSMType::LR1 {
                 Some(Vec::new())
@@ -265,6 +273,8 @@ impl Grammar {
         let mut states = vec![start_state];
         let mut q: VecDeque<usize> = VecDeque::new();
         q.push_back(0);
+
+        let mut end: usize = 0;
 
         while let Some(u) = q.pop_front() {
             let mut edges: HashMap<String, LRItem> = HashMap::new();
@@ -283,6 +293,11 @@ impl Grammar {
             }
 
             for (e, v) in edges {
+                if e == END_MARK {
+                    end = u;
+                    continue;
+                }
+
                 let mut entry_or_insert = |s: LRItem| {
                     for (i, state) in states.iter().enumerate() {
                         if state.core == s.core && state.extend == s.extend {
@@ -301,10 +316,14 @@ impl Grammar {
 
         Ok(LRFSM {
             t,
+            terminals: self.terminal_iter().cloned().collect(),
+            non_terminals: self.non_terminal_iter().map(|nt| nt.name.clone()).collect(),
             states,
             start: 0,
+            end,
             follow: if t == LRFSMType::LR0 {
                 let mut r: HashMap<String, Vec<String>> = HashMap::new();
+                r.insert(dummy_start, vec![]);
                 for nt in self.non_terminal_iter() {
                     r.insert(
                         nt.name.clone(),
@@ -319,5 +338,141 @@ impl Grammar {
                 None
             },
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum LRParsingTableAction {
+    Shift(usize),
+    Reduce((String, Vec<String>)),
+    Accept,
+}
+
+pub struct LRParsingTable {
+    pub t: LRFSMType,
+    pub terminals: Vec<String>,
+    pub non_terminals: Vec<String>,
+    pub action: Vec<Vec<Vec<LRParsingTableAction>>>,
+    pub goto: Vec<Vec<Vec<usize>>>,
+}
+
+impl LRFSM {
+    pub fn to_parsing_table(&self) -> LRParsingTable {
+        let mut terminal_idx_map: HashMap<&str, usize> = HashMap::new();
+        for (i, s) in self.terminals.iter().enumerate() {
+            terminal_idx_map.insert(s, i);
+        }
+
+        let mut non_terminal_idx_map: HashMap<&str, usize> = HashMap::new();
+        for (i, s) in self.non_terminals.iter().enumerate() {
+            non_terminal_idx_map.insert(s, i);
+        }
+
+        let mut table = LRParsingTable {
+            t: self.t,
+            terminals: self.terminals.clone(),
+            non_terminals: self.non_terminals.clone(),
+            action: Vec::new(),
+            goto: Vec::new(),
+        };
+
+        for state in &self.states {
+            let mut action_row: Vec<Vec<LRParsingTableAction>> =
+                vec![Vec::new(); self.terminals.len()];
+            let mut goto_row: Vec<Vec<usize>> = vec![Vec::new(); self.non_terminals.len()];
+            for prodcution in state.core.iter().chain(state.extend.iter()) {
+                if prodcution.production.len() == prodcution.position {
+                    let lookahead = if let Some(lookahead) = &prodcution.lookahead {
+                        lookahead
+                    } else {
+                        &self.follow.as_ref().unwrap()[&prodcution.left]
+                    };
+                    for terminal in lookahead {
+                        action_row[terminal_idx_map[terminal.as_str()]].push(
+                            LRParsingTableAction::Reduce((
+                                prodcution.left.clone(),
+                                prodcution.production.clone(),
+                            )),
+                        );
+                    }
+                }
+            }
+            for (e, v) in &state.edges {
+                if let Some(idx) = terminal_idx_map.get(e.as_str()) {
+                    action_row[*idx].push(LRParsingTableAction::Shift(*v));
+                }
+                if let Some(idx) = non_terminal_idx_map.get(e.as_str()) {
+                    goto_row[*idx].push(*v);
+                }
+            }
+            table.action.push(action_row);
+            table.goto.push(goto_row);
+        }
+
+        table.action[self.end][terminal_idx_map[END_MARK]].push(LRParsingTableAction::Accept);
+
+        table
+    }
+}
+
+impl LRParsingTableAction {
+    pub fn to_plaintext(&self) -> String {
+        match self {
+            LRParsingTableAction::Reduce(r) => {
+                format!("r({} -> {})", r.0, r.1.join(" "))
+            }
+            LRParsingTableAction::Shift(s) => {
+                format!("s{}", s)
+            }
+            LRParsingTableAction::Accept => "acc".to_string(),
+        }
+    }
+}
+
+impl LRParsingTable {
+    pub fn to_plaintext(&self) -> String {
+        let mut output: Vec<Vec<String>> = Vec::new();
+
+        output.push(vec![String::new()]);
+        for s in self.terminals.iter().chain(self.non_terminals.iter()) {
+            output[0].push(s.clone());
+        }
+
+        for (r1, r2) in self.action.iter().zip(self.goto.iter()) {
+            let i = output.len() - 1;
+            let row: Vec<String> = std::iter::once(i.to_string())
+                .chain(r1.iter().map(|actions| {
+                    actions
+                        .iter()
+                        .map(|action| action.to_plaintext())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }))
+                .chain(r2.iter().map(|gotos| {
+                    gotos
+                        .iter()
+                        .map(|goto| goto.to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }))
+                .collect::<Vec<_>>();
+            output.push(row);
+        }
+
+        let width: Vec<usize> = (0..output[0].len())
+            .map(|j| output.iter().map(|row| row[j].len()).max().unwrap())
+            .collect();
+
+        output
+            .iter()
+            .map(|line| {
+                line.iter()
+                    .enumerate()
+                    .map(|(i, s)| format!("{:>width$}", s, width = width[i]))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
