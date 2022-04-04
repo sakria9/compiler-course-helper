@@ -88,12 +88,7 @@ impl Grammar {
             if let Some(non_terminal) = symbol.non_terminal() {
                 let mut rights = Vec::new();
                 for production in &non_terminal.productions {
-                    rights.push(
-                        production
-                            .iter()
-                            .map(|idx| self.get_symbol_name(*idx))
-                            .collect(),
-                    );
+                    rights.push(self.production_to_vec_str(&production));
                 }
                 productions.push(ProductionOutput {
                     left: non_terminal.name.as_str(),

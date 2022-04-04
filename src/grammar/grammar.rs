@@ -71,6 +71,10 @@ impl Grammar {
         g
     }
 
+    pub fn get_symbol_by_name(&self, name: &str) -> &Symbol {
+        &self.symbols[self.symbol_table[name]]
+    }
+
     pub fn terminal_iter(&self) -> impl Iterator<Item = &String> {
         self.symbols.iter().filter_map(|s| {
             if let Symbol::Terminal(name) = s {
@@ -144,5 +148,12 @@ impl Grammar {
 
     pub fn validate_nullable_first_follow(&mut self) {
         self.valid_nullable_first_follow = true;
+    }
+
+    pub fn production_to_vec_str(&self, production: &Vec<usize>) -> Vec<&str> {
+        production
+            .iter()
+            .map(|idx| self.get_symbol_name(*idx))
+            .collect()
     }
 }
