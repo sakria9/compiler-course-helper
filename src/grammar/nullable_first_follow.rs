@@ -54,7 +54,7 @@ impl Grammar {
         }
     }
 
-    pub fn calculate_first_for_production(&self, production: &Vec<usize>) -> HashSet<usize> {
+    pub fn calculate_first_for_production(&self, production: &[usize]) -> HashSet<usize> {
         let mut first: HashSet<usize> = HashSet::new();
         for (idx, symbol) in production.iter().map(|i| (*i, &self.symbols[*i])) {
             match symbol {
