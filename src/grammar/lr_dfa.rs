@@ -4,7 +4,7 @@ use crate::Grammar;
 
 use super::{grammar::Symbol, END_MARK, EPSILON};
 
-#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Clone)]
 pub struct DotProduction {
     pub left: String,
     pub production: Vec<String>,
@@ -66,7 +66,7 @@ impl DotProduction {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct LRItem {
     pub kernel: Vec<DotProduction>,
     pub extend: Vec<DotProduction>,
@@ -185,6 +185,17 @@ impl LRItem {
         }
     }
 
+    fn core_eq(&self, rhs: &LRItem) -> bool {
+        if self.kernel.len() != rhs.kernel.len() || self.extend.len() != rhs.extend.len() {
+            return false;
+        }
+        let a = self.kernel.iter().chain(self.extend.iter());
+        let b = rhs.kernel.iter().chain(rhs.extend.iter());
+        a.zip(b).all(|(x, y)| {
+            x.left == y.left && x.production == y.production && x.position == y.position
+        })
+    }
+
     fn to_plaintext(&self) -> String {
         let kernel = self
             .kernel
@@ -227,6 +238,7 @@ impl LRItem {
 pub enum LRFSMType {
     LR0,
     LR1,
+    LALR,
 }
 
 #[derive(Debug)]
@@ -270,7 +282,7 @@ impl Grammar {
         let mut start_state = LRItem::new(vec![DotProduction::new(
             dummy_start.clone(),
             vec![real_start],
-            if t == LRFSMType::LR1 {
+            if t == LRFSMType::LR1 || t == LRFSMType::LALR {
                 Some(vec![END_MARK.to_string()])
             } else {
                 None
@@ -320,6 +332,64 @@ impl Grammar {
                 let v_idx = entry_or_insert(s);
                 states[u].edges.insert(e.clone(), v_idx);
             }
+        }
+
+        if t == LRFSMType::LALR {
+            let mut new_id: Vec<Option<usize>> = vec![None; states.len()];
+            let mut cnt: usize = 0;
+            for i in 0..states.len() {
+                if new_id[i].is_some() {
+                    continue;
+                }
+                let id = cnt;
+                cnt += 1;
+                new_id[i] = Some(id);
+                for j in i + 1..states.len() {
+                    if states[i].core_eq(&states[j]) {
+                        assert_eq!(new_id[j], None);
+                        new_id[j] = Some(id);
+                    }
+                }
+            }
+
+            let mut new_states: Vec<Vec<LRItem>> = vec![Vec::new(); cnt];
+            for (i, s) in states.into_iter().enumerate() {
+                new_states[new_id[i].unwrap()].push(s);
+            }
+
+            states = new_states
+                .into_iter()
+                .map(|mut arr| {
+                    for (_, v) in arr[0].edges.iter_mut() {
+                        *v = new_id[*v].unwrap();
+                    }
+
+                    arr.into_iter()
+                        .reduce(|mut accum, s| {
+                            for (x, y) in accum
+                                .kernel
+                                .iter_mut()
+                                .chain(accum.extend.iter_mut())
+                                .zip(s.kernel.iter().chain(s.extend.iter()))
+                            {
+                                x.lookahead
+                                    .as_mut()
+                                    .unwrap()
+                                    .extend(y.lookahead.as_ref().unwrap().iter().cloned());
+                                x.lookahead.as_mut().unwrap().sort();
+                                x.lookahead.as_mut().unwrap().dedup();
+                            }
+
+                            for (e, v) in s.edges {
+                                let to = accum.edges.entry(e).or_insert(new_id[v].unwrap());
+                                assert_eq!(*to, new_id[v].unwrap());
+                            }
+
+                            accum
+                        })
+                        .unwrap()
+                })
+                .collect();
         }
 
         Ok(LRFSM {
