@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crowbook_text_processing::escape;
 use serde::Serialize;
 
@@ -304,14 +306,18 @@ impl LRParsingTableAction {
         }
     }
 
-    pub fn to_latex(&self) -> String {
+    pub fn to_latex(&self, terminal_set: &HashSet<&String>) -> String {
         match self {
             LRParsingTableAction::Reduce(r) => {
                 format!(
                     "reduce ${} \\rightarrow {}$",
                     escape::tex(&r.0),
                     r.1.iter()
-                        .map(|s| escape::tex(s))
+                        .map(|s| if terminal_set.contains(s) {
+                            format!("\\text{{{}}}", escape::tex(s))
+                        } else {
+                            escape::tex(s).to_string()
+                        })
                         .collect::<Vec<_>>()
                         .join(" \\  ")
                         .replace(super::EPSILON, "\\epsilon")
@@ -388,13 +394,15 @@ impl LRParsingTable {
         }
         let first_row = first_row.join(" & ");
 
+        let terminal_set: HashSet<&String> = self.terminals.iter().collect();
+
         for (r1, r2) in self.action.iter().zip(self.goto.iter()) {
             let i = content.len();
             let row: Vec<String> = std::iter::once(i.to_string())
                 .chain(r1.iter().map(|actions| {
                     let r = actions
                         .iter()
-                        .map(|action| action.to_latex())
+                        .map(|action| action.to_latex(&terminal_set))
                         .collect::<Vec<_>>()
                         .join("; ");
                     if actions.len() > 1 {
