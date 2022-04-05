@@ -45,6 +45,10 @@ impl DotProduction {
         output.push_str(&self.left);
         output.push_str(" -> ");
         for (i, s) in self.production.iter().enumerate() {
+            if i != 0 {
+                output.push_str(" ");
+            }
+
             if i == self.position {
                 output.push_str(".");
             }
