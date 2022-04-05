@@ -4,7 +4,7 @@ use crate::Grammar;
 
 use super::{grammar::Symbol, END_MARK, EPSILON};
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct DotProduction {
     pub left: String,
     pub production: Vec<String>,
@@ -68,14 +68,14 @@ impl DotProduction {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct LRItem {
-    pub core: HashSet<DotProduction>,
-    pub extend: HashSet<DotProduction>,
+    pub core: Vec<DotProduction>,
+    pub extend: Vec<DotProduction>,
     pub edges: HashMap<String, usize>,
 }
 
 impl LRItem {
     fn calculate_extend(&mut self, g: &Grammar) {
-        let is_lr1 = self.core.iter().next().unwrap().lookahead.is_some();
+        let is_lr1 = self.core[0].lookahead.is_some();
         let mut extend: HashMap<usize, Option<HashSet<usize>>> = HashMap::new();
         let mut q: VecDeque<usize> = VecDeque::new();
 
@@ -90,7 +90,7 @@ impl LRItem {
             .collect()
         };
 
-        // use self.core as the initial self.extend
+        // use self.core to initialize self.extend
         for c in &self.core {
             if let Some(symbol) = c.production.get(c.position) {
                 if let Symbol::NonTerminal(nt) = g.get_symbol_by_name(symbol.as_str()) {
@@ -160,7 +160,7 @@ impl LRItem {
             });
 
             for production in &nt.productions {
-                self.extend.insert(DotProduction::new(
+                self.extend.push(DotProduction::new(
                     nt.name.clone(),
                     g.production_to_vec_str(production)
                         .iter()
@@ -169,15 +169,18 @@ impl LRItem {
                     lookahead.clone(),
                 ));
             }
+
+            self.extend.sort();
         }
     }
 }
 
 impl LRItem {
-    fn new(core: HashSet<DotProduction>) -> Self {
+    fn new(mut core: Vec<DotProduction>) -> Self {
+        core.sort();
         Self {
             core,
-            extend: HashSet::new(),
+            extend: Vec::new(),
             edges: HashMap::new(),
         }
     }
@@ -264,7 +267,7 @@ impl Grammar {
 
         let real_start = self.get_symbol_name(self.start_symbol.unwrap()).to_string();
         let dummy_start = self.get_symbol_prime_name(real_start.clone());
-        let mut start_state = LRItem::new(HashSet::from([DotProduction::new(
+        let mut start_state = LRItem::new(vec![DotProduction::new(
             dummy_start.clone(),
             vec![real_start],
             if t == LRFSMType::LR1 {
@@ -272,7 +275,7 @@ impl Grammar {
             } else {
                 None
             },
-        )]));
+        )]);
         start_state.calculate_extend(self);
         let mut states = vec![start_state];
         let mut q: VecDeque<usize> = VecDeque::new();
@@ -281,7 +284,7 @@ impl Grammar {
         let mut end: usize = 0;
 
         while let Some(u) = q.pop_front() {
-            let mut edges: HashMap<String, LRItem> = HashMap::new();
+            let mut edges: HashMap<String, HashSet<DotProduction>> = HashMap::new();
 
             let productions = states[u].core.iter().chain(states[u].extend.iter());
             for production in productions {
@@ -294,16 +297,15 @@ impl Grammar {
 
                 if production.position < production.production.len() {
                     let e = production.production[production.position].clone();
-                    let item = edges.entry(e).or_insert(LRItem::new(HashSet::new()));
-                    item.core.insert(production.generate_next());
+                    let item = edges.entry(e).or_insert(HashSet::new());
+                    item.insert(production.generate_next());
                 }
             }
 
-            for (_, item) in edges.iter_mut() {
-                item.calculate_extend(self);
-            }
+            for (e, core) in edges {
+                let mut s = LRItem::new(core.into_iter().collect());
+                s.calculate_extend(self);
 
-            for (e, v) in edges {
                 let mut entry_or_insert = |s: LRItem| {
                     for (i, state) in states.iter().enumerate() {
                         if state.core == s.core && state.extend == s.extend {
@@ -315,7 +317,7 @@ impl Grammar {
                     states.len() - 1
                 };
 
-                let v_idx = entry_or_insert(v);
+                let v_idx = entry_or_insert(s);
                 states[u].edges.insert(e.clone(), v_idx);
             }
         }
@@ -364,7 +366,7 @@ pub struct LRParsingTable {
 
 impl LRFSM {
     pub fn to_parsing_table(&self) -> LRParsingTable {
-        let dummy_start = &self.states[0].core.iter().next().unwrap().left;
+        let dummy_start = &self.states[0].core[0].left;
 
         let mut terminal_idx_map: HashMap<&str, usize> = HashMap::new();
         for (i, s) in self.terminals.iter().enumerate() {
