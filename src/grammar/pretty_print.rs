@@ -344,12 +344,12 @@ impl LRParsingTable {
                         .collect::<Vec<_>>()
                         .join("; ")
                 }))
-                .chain(r2.iter().map(|gotos| {
-                    gotos
-                        .iter()
-                        .map(|goto| goto.to_string())
-                        .collect::<Vec<_>>()
-                        .join("; ")
+                .chain(r2.iter().map(|goto| {
+                    if let Some(goto) = goto {
+                        goto.to_string()
+                    } else {
+                        String::new()
+                    }
                 }))
                 .collect::<Vec<_>>();
             output.push(row);
@@ -403,12 +403,12 @@ impl LRParsingTable {
                         r
                     }
                 }))
-                .chain(r2.iter().map(|gotos| {
-                    gotos
-                        .iter()
-                        .map(|goto| goto.to_string())
-                        .collect::<Vec<_>>()
-                        .join("; ")
+                .chain(r2.iter().map(|goto| {
+                    if let Some(goto) = goto {
+                        goto.to_string()
+                    } else {
+                        String::new()
+                    }
                 }))
                 .collect::<Vec<_>>();
             content.push(row);

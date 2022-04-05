@@ -369,7 +369,7 @@ pub struct LRParsingTable {
     pub terminals: Vec<String>,
     pub non_terminals: Vec<String>,
     pub action: Vec<Vec<Vec<LRParsingTableAction>>>,
-    pub goto: Vec<Vec<Vec<usize>>>,
+    pub goto: Vec<Vec<Option<usize>>>,
 }
 
 impl LRFSM {
@@ -397,7 +397,7 @@ impl LRFSM {
         for state in &self.states {
             let mut action_row: Vec<Vec<LRParsingTableAction>> =
                 vec![Vec::new(); self.terminals.len()];
-            let mut goto_row: Vec<Vec<usize>> = vec![Vec::new(); self.non_terminals.len()];
+            let mut goto_row: Vec<Option<usize>> = vec![None; self.non_terminals.len()];
             for prodcution in state.kernel.iter().chain(state.extend.iter()) {
                 if prodcution.production.len() == prodcution.position {
                     if &prodcution.left == dummy_start {
@@ -425,7 +425,7 @@ impl LRFSM {
                     action_row[*idx].push(LRParsingTableAction::Shift(*v));
                 }
                 if let Some(idx) = non_terminal_idx_map.get(e.as_str()) {
-                    goto_row[*idx].push(*v);
+                    goto_row[*idx] = Some(*v);
                 }
             }
             table.action.push(action_row);
