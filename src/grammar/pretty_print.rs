@@ -392,11 +392,16 @@ impl LRParsingTable {
             let i = content.len();
             let row: Vec<String> = std::iter::once(i.to_string())
                 .chain(r1.iter().map(|actions| {
-                    actions
+                    let r = actions
                         .iter()
                         .map(|action| action.to_latex())
                         .collect::<Vec<_>>()
-                        .join("; ")
+                        .join("; ");
+                    if actions.len() > 1 {
+                        format!("{{\\color{{red}}{}}}", r)
+                    } else {
+                        r
+                    }
                 }))
                 .chain(r2.iter().map(|gotos| {
                     gotos
