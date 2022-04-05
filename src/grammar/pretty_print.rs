@@ -1,7 +1,10 @@
 use crowbook_text_processing::escape;
 use serde::Serialize;
 
-use super::{Grammar, EPSILON};
+use super::{
+    lr_dfa::{DotProduction, LRItem, LRParsingTable, LRParsingTableAction},
+    Grammar, EPSILON,
+};
 
 #[derive(Debug, Clone)]
 pub struct ProductionOutput<'a> {
@@ -198,5 +201,223 @@ impl Grammar {
             }
         }
         NonTerminalOutputVec { data }
+    }
+}
+
+impl DotProduction {
+    pub fn to_plaintext(&self) -> String {
+        let mut output = String::new();
+        output.push_str(&self.left);
+        output.push_str(" -> ");
+        for (i, s) in self.production.iter().enumerate() {
+            if i != 0 {
+                output.push_str(" ");
+            }
+
+            if i == self.position {
+                output.push_str(".");
+            }
+            output.push_str(s);
+        }
+        if self.position == self.production.len() {
+            output.push_str(".");
+        }
+        if let Some(lookahead) = &self.lookahead {
+            output.push_str(", ");
+            output.push_str(&lookahead.join("/"));
+        }
+
+        output
+    }
+    pub fn to_latex(&self) -> String {
+        let mut right: Vec<String> = Vec::new();
+        for (i, s) in self.production.iter().enumerate() {
+            if i == self.position {
+                right.push("\\ldots".to_string());
+            }
+            right.push(escape::tex(s).to_string());
+        }
+        let right = right.join(" ").replace(super::EPSILON, "\\epsilon");
+
+        if let Some(lookahead) = &self.lookahead {
+            let lookahead = lookahead
+                .iter()
+                .map(|s| escape::tex(s))
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!("${} \\rightarrow {}$, {}", self.left, right, lookahead)
+        } else {
+            format!("${} \\rightarrow {}$", self.left, right)
+        }
+    }
+}
+
+impl LRItem {
+    pub fn to_plaintext(&self) -> String {
+        let kernel = self
+            .kernel
+            .iter()
+            .map(|c| c.to_plaintext())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let extend = if self.extend.len() > 0 {
+            format!(
+                "\n---\n{}",
+                self.extend
+                    .iter()
+                    .map(|c| c.to_plaintext())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        } else {
+            String::new()
+        };
+
+        let edges = if self.edges.len() > 0 {
+            format!(
+                "\n===\n{}",
+                self.edges
+                    .iter()
+                    .map(|(k, v)| format!("- {} -> {}", k, v))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        } else {
+            String::new()
+        };
+
+        format!("{}{}{}", kernel, extend, edges)
+    }
+}
+
+impl LRParsingTableAction {
+    pub fn to_plaintext(&self) -> String {
+        match self {
+            LRParsingTableAction::Reduce(r) => {
+                format!("r({} -> {})", r.0, r.1.join(" "))
+            }
+            LRParsingTableAction::Shift(s) => {
+                format!("s{}", s)
+            }
+            LRParsingTableAction::Accept => "acc".to_string(),
+        }
+    }
+
+    pub fn to_latex(&self) -> String {
+        match self {
+            LRParsingTableAction::Reduce(r) => {
+                format!(
+                    "reduce ${} \\rightarrow {}$",
+                    escape::tex(&r.0),
+                    r.1.iter()
+                        .map(|s| escape::tex(s))
+                        .collect::<Vec<_>>()
+                        .join(" \\  ")
+                        .replace(super::EPSILON, "\\epsilon")
+                )
+            }
+            LRParsingTableAction::Shift(s) => {
+                format!("shift {}", s)
+            }
+            LRParsingTableAction::Accept => "accept".to_string(),
+        }
+    }
+}
+
+impl LRParsingTable {
+    pub fn to_plaintext(&self) -> String {
+        let mut output: Vec<Vec<String>> = Vec::new();
+
+        output.push(vec![String::new()]);
+        for s in self.terminals.iter().chain(self.non_terminals.iter()) {
+            output[0].push(s.clone());
+        }
+
+        for (r1, r2) in self.action.iter().zip(self.goto.iter()) {
+            let i = output.len() - 1;
+            let row: Vec<String> = std::iter::once(i.to_string())
+                .chain(r1.iter().map(|actions| {
+                    actions
+                        .iter()
+                        .map(|action| action.to_plaintext())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }))
+                .chain(r2.iter().map(|gotos| {
+                    gotos
+                        .iter()
+                        .map(|goto| goto.to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }))
+                .collect::<Vec<_>>();
+            output.push(row);
+        }
+
+        let width: Vec<usize> = (0..output[0].len())
+            .map(|j| output.iter().map(|row| row[j].len()).max().unwrap())
+            .collect();
+
+        output
+            .iter()
+            .map(|line| {
+                line.iter()
+                    .enumerate()
+                    .map(|(i, s)| format!("{:>width$}", s, width = width[i]))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    pub fn to_latex(&self) -> String {
+        let header: String = format!(
+            "\\begin{{tabular}}{{c{}}}\n & \\multicolumn{{{}}}{{c}}{{action}} & \\multicolumn{{{}}}{{|c}}{{goto}}\\\\",
+            "|l".repeat(self.terminals.len() + self.non_terminals.len()),
+            self.terminals.len(),
+            self.non_terminals.len(),
+        );
+
+        let mut content: Vec<Vec<String>> = Vec::new();
+
+        let mut first_row: Vec<String> = Vec::new();
+        for s in self.terminals.iter().chain(self.non_terminals.iter()) {
+            first_row.push(escape::tex(s).to_string());
+        }
+        let first_row = first_row.join(" & ");
+
+        for (r1, r2) in self.action.iter().zip(self.goto.iter()) {
+            let i = content.len();
+            let row: Vec<String> = std::iter::once(i.to_string())
+                .chain(r1.iter().map(|actions| {
+                    actions
+                        .iter()
+                        .map(|action| action.to_latex())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }))
+                .chain(r2.iter().map(|gotos| {
+                    gotos
+                        .iter()
+                        .map(|goto| goto.to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }))
+                .collect::<Vec<_>>();
+            content.push(row);
+        }
+
+        let content = content
+            .iter()
+            .map(|row| row.join(" & "))
+            .collect::<Vec<_>>();
+        let content = content.join(" \\\\\n");
+
+        format!(
+            "{}\n{} \\\\\\hline\n{}\n\\end{{tabular}}",
+            header, first_row, content
+        )
     }
 }

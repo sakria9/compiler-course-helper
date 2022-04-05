@@ -39,31 +39,6 @@ impl DotProduction {
             lookahead: self.lookahead.clone(),
         }
     }
-
-    pub fn to_plaintext(&self) -> String {
-        let mut output = String::new();
-        output.push_str(&self.left);
-        output.push_str(" -> ");
-        for (i, s) in self.production.iter().enumerate() {
-            if i != 0 {
-                output.push_str(" ");
-            }
-
-            if i == self.position {
-                output.push_str(".");
-            }
-            output.push_str(s);
-        }
-        if self.position == self.production.len() {
-            output.push_str(".");
-        }
-        if let Some(lookahead) = &self.lookahead {
-            output.push_str(", ");
-            output.push_str(&lookahead.join("/"));
-        }
-
-        output
-    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -194,43 +169,6 @@ impl LRItem {
         a.zip(b).all(|(x, y)| {
             x.left == y.left && x.production == y.production && x.position == y.position
         })
-    }
-
-    fn to_plaintext(&self) -> String {
-        let kernel = self
-            .kernel
-            .iter()
-            .map(|c| c.to_plaintext())
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        let extend = if self.extend.len() > 0 {
-            format!(
-                "\n---\n{}",
-                self.extend
-                    .iter()
-                    .map(|c| c.to_plaintext())
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )
-        } else {
-            String::new()
-        };
-
-        let edges = if self.edges.len() > 0 {
-            format!(
-                "\n===\n{}",
-                self.edges
-                    .iter()
-                    .map(|(k, v)| format!("- {} -> {}", k, v))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )
-        } else {
-            String::new()
-        };
-
-        format!("{}{}{}", kernel, extend, edges)
     }
 }
 
@@ -495,67 +433,5 @@ impl LRFSM {
         }
 
         table
-    }
-}
-
-impl LRParsingTableAction {
-    pub fn to_plaintext(&self) -> String {
-        match self {
-            LRParsingTableAction::Reduce(r) => {
-                format!("r({} -> {})", r.0, r.1.join(" "))
-            }
-            LRParsingTableAction::Shift(s) => {
-                format!("s{}", s)
-            }
-            LRParsingTableAction::Accept => "acc".to_string(),
-        }
-    }
-}
-
-impl LRParsingTable {
-    pub fn to_plaintext(&self) -> String {
-        let mut output: Vec<Vec<String>> = Vec::new();
-
-        output.push(vec![String::new()]);
-        for s in self.terminals.iter().chain(self.non_terminals.iter()) {
-            output[0].push(s.clone());
-        }
-
-        for (r1, r2) in self.action.iter().zip(self.goto.iter()) {
-            let i = output.len() - 1;
-            let row: Vec<String> = std::iter::once(i.to_string())
-                .chain(r1.iter().map(|actions| {
-                    actions
-                        .iter()
-                        .map(|action| action.to_plaintext())
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                }))
-                .chain(r2.iter().map(|gotos| {
-                    gotos
-                        .iter()
-                        .map(|goto| goto.to_string())
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                }))
-                .collect::<Vec<_>>();
-            output.push(row);
-        }
-
-        let width: Vec<usize> = (0..output[0].len())
-            .map(|j| output.iter().map(|row| row[j].len()).max().unwrap())
-            .collect();
-
-        output
-            .iter()
-            .map(|line| {
-                line.iter()
-                    .enumerate()
-                    .map(|(i, s)| format!("{:>width$}", s, width = width[i]))
-                    .collect::<Vec<_>>()
-                    .join(" | ")
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
     }
 }
