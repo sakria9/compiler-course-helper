@@ -68,14 +68,14 @@ impl DotProduction {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct LRItem {
-    pub core: Vec<DotProduction>,
+    pub kernel: Vec<DotProduction>,
     pub extend: Vec<DotProduction>,
     pub edges: HashMap<String, usize>,
 }
 
 impl LRItem {
     fn calculate_extend(&mut self, g: &Grammar) {
-        let is_lr1 = self.core[0].lookahead.is_some();
+        let is_lr1 = self.kernel[0].lookahead.is_some();
         let mut extend: HashMap<usize, Option<HashSet<usize>>> = HashMap::new();
         let mut q: VecDeque<usize> = VecDeque::new();
 
@@ -90,8 +90,8 @@ impl LRItem {
             .collect()
         };
 
-        // use self.core to initialize self.extend
-        for c in &self.core {
+        // use self.kernel to initialize self.extend
+        for c in &self.kernel {
             if let Some(symbol) = c.production.get(c.position) {
                 if let Symbol::NonTerminal(nt) = g.get_symbol_by_name(symbol.as_str()) {
                     if !extend.contains_key(&nt.index) {
@@ -176,18 +176,18 @@ impl LRItem {
 }
 
 impl LRItem {
-    fn new(mut core: Vec<DotProduction>) -> Self {
-        core.sort();
+    fn new(mut kernel: Vec<DotProduction>) -> Self {
+        kernel.sort();
         Self {
-            core,
+            kernel,
             extend: Vec::new(),
             edges: HashMap::new(),
         }
     }
 
     fn to_plaintext(&self) -> String {
-        let core = self
-            .core
+        let kernel = self
+            .kernel
             .iter()
             .map(|c| c.to_plaintext())
             .collect::<Vec<_>>()
@@ -219,7 +219,7 @@ impl LRItem {
             String::new()
         };
 
-        format!("{}{}{}", core, extend, edges)
+        format!("{}{}{}", kernel, extend, edges)
     }
 }
 
@@ -286,7 +286,7 @@ impl Grammar {
         while let Some(u) = q.pop_front() {
             let mut edges: HashMap<String, HashSet<DotProduction>> = HashMap::new();
 
-            let productions = states[u].core.iter().chain(states[u].extend.iter());
+            let productions = states[u].kernel.iter().chain(states[u].extend.iter());
             for production in productions {
                 if production.production.len() == 1
                     && production.position == 1
@@ -302,13 +302,13 @@ impl Grammar {
                 }
             }
 
-            for (e, core) in edges {
-                let mut s = LRItem::new(core.into_iter().collect());
+            for (e, kernel) in edges {
+                let mut s = LRItem::new(kernel.into_iter().collect());
                 s.calculate_extend(self);
 
                 let mut entry_or_insert = |s: LRItem| {
                     for (i, state) in states.iter().enumerate() {
-                        if state.core == s.core && state.extend == s.extend {
+                        if state.kernel == s.kernel && state.extend == s.extend {
                             return i;
                         }
                     }
@@ -366,7 +366,7 @@ pub struct LRParsingTable {
 
 impl LRFSM {
     pub fn to_parsing_table(&self) -> LRParsingTable {
-        let dummy_start = &self.states[0].core[0].left;
+        let dummy_start = &self.states[0].kernel[0].left;
 
         let mut terminal_idx_map: HashMap<&str, usize> = HashMap::new();
         for (i, s) in self.terminals.iter().enumerate() {
@@ -390,7 +390,7 @@ impl LRFSM {
             let mut action_row: Vec<Vec<LRParsingTableAction>> =
                 vec![Vec::new(); self.terminals.len()];
             let mut goto_row: Vec<Vec<usize>> = vec![Vec::new(); self.non_terminals.len()];
-            for prodcution in state.core.iter().chain(state.extend.iter()) {
+            for prodcution in state.kernel.iter().chain(state.extend.iter()) {
                 if prodcution.production.len() == prodcution.position {
                     if &prodcution.left == dummy_start {
                         action_row[terminal_idx_map[END_MARK]].push(LRParsingTableAction::Accept);
