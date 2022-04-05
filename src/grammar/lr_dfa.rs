@@ -266,9 +266,9 @@ impl Grammar {
         let dummy_start = self.get_symbol_prime_name(real_start.clone());
         let mut start_state = LRItem::new(HashSet::from([DotProduction::new(
             dummy_start.clone(),
-            vec![real_start, END_MARK.to_string()],
+            vec![real_start],
             if t == LRFSMType::LR1 {
-                Some(Vec::new())
+                Some(vec![END_MARK.to_string()])
             } else {
                 None
             },
@@ -285,6 +285,13 @@ impl Grammar {
 
             let productions = states[u].core.iter().chain(states[u].extend.iter());
             for production in productions {
+                if production.production.len() == 1
+                    && production.position == 1
+                    && production.left == dummy_start
+                {
+                    end = u;
+                }
+
                 if production.position < production.production.len() {
                     let e = production.production[production.position].clone();
                     let item = edges.entry(e).or_insert(LRItem::new(HashSet::new()));
@@ -297,11 +304,6 @@ impl Grammar {
             }
 
             for (e, v) in edges {
-                if e == END_MARK {
-                    end = u;
-                    continue;
-                }
-
                 let mut entry_or_insert = |s: LRItem| {
                     for (i, state) in states.iter().enumerate() {
                         if state.core == s.core && state.extend == s.extend {
@@ -327,7 +329,7 @@ impl Grammar {
             end,
             follow: if t == LRFSMType::LR0 {
                 let mut r: HashMap<String, Vec<String>> = HashMap::new();
-                r.insert(dummy_start, vec![]);
+                r.insert(dummy_start, vec![END_MARK.to_string()]);
                 for nt in self.non_terminal_iter() {
                     r.insert(
                         nt.name.clone(),
@@ -362,6 +364,8 @@ pub struct LRParsingTable {
 
 impl LRFSM {
     pub fn to_parsing_table(&self) -> LRParsingTable {
+        let dummy_start = &self.states[0].core.iter().next().unwrap().left;
+
         let mut terminal_idx_map: HashMap<&str, usize> = HashMap::new();
         for (i, s) in self.terminals.iter().enumerate() {
             terminal_idx_map.insert(s, i);
@@ -386,6 +390,11 @@ impl LRFSM {
             let mut goto_row: Vec<Vec<usize>> = vec![Vec::new(); self.non_terminals.len()];
             for prodcution in state.core.iter().chain(state.extend.iter()) {
                 if prodcution.production.len() == prodcution.position {
+                    if &prodcution.left == dummy_start {
+                        action_row[terminal_idx_map[END_MARK]].push(LRParsingTableAction::Accept);
+                        continue;
+                    }
+
                     let lookahead = if let Some(lookahead) = &prodcution.lookahead {
                         lookahead
                     } else {
@@ -412,8 +421,6 @@ impl LRFSM {
             table.action.push(action_row);
             table.goto.push(goto_row);
         }
-
-        table.action[self.end][terminal_idx_map[END_MARK]].push(LRParsingTableAction::Accept);
 
         table
     }
