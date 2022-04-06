@@ -388,7 +388,7 @@ impl LRParsingTable {
 
         let mut content: Vec<Vec<String>> = Vec::new();
 
-        let mut first_row: Vec<String> = Vec::new();
+        let mut first_row: Vec<String> = vec![String::new()];
         for s in self.terminals.iter().chain(self.non_terminals.iter()) {
             first_row.push(escape::tex(s).to_string());
         }
