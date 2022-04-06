@@ -191,20 +191,6 @@ pub struct LRFSM {
     pub follow: Option<HashMap<String, Vec<String>>>,
 }
 
-impl LRFSM {
-    pub fn to_plaintext(&self) -> String {
-        let states = self
-            .states
-            .iter()
-            .enumerate()
-            .map(|(i, s)| format!("I{}\n{}", i, s.to_plaintext()))
-            .collect::<Vec<_>>()
-            .join("\n\n");
-
-        format!("{}\n\nstart: {}", states, self.start)
-    }
-}
-
 impl Grammar {
     pub fn to_lr_fsm(&mut self, t: LRFSMType) -> Result<LRFSM, String> {
         if self.start_symbol.is_none() {

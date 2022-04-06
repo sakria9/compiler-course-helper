@@ -335,6 +335,18 @@ impl LRItem {
 }
 
 impl LRFSM {
+    pub fn to_plaintext(&self) -> String {
+        let states = self
+            .states
+            .iter()
+            .enumerate()
+            .map(|(i, s)| format!("I{}\n{}", i, s.to_plaintext()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        format!("{}\n\nstart: {}", states, self.start)
+    }
+
     pub fn to_latex(&self) -> String {
         format!(
             "\\begin{{tikzpicture}}[node distance=5cm,block/.style={{state, rectangle, text width=6em}}]\n{}\n\\end{{tikzpicture}}",
