@@ -4,7 +4,7 @@ use crowbook_text_processing::escape;
 use serde::Serialize;
 
 use super::{
-    lr_dfa::{DotProduction, LRItem, LRParsingTable, LRParsingTableAction},
+    lr_dfa::{DotProduction, LRItem, LRParsingTable, LRParsingTableAction, LRFSM},
     Grammar, EPSILON,
 };
 
@@ -235,7 +235,7 @@ impl DotProduction {
         let mut right: Vec<String> = Vec::new();
         for (i, s) in self.production.iter().enumerate() {
             if i == self.position {
-                right.push("\\ldots".to_string());
+                right.push(".".to_string());
             }
             right.push(escape::tex(s).to_string());
         }
@@ -290,6 +290,62 @@ impl LRItem {
         };
 
         format!("{}{}{}", kernel, extend, edges)
+    }
+
+    pub fn node_to_latex(&self, id: usize) -> String {
+        let content = self
+            .kernel
+            .iter()
+            .chain(self.extend.iter())
+            .map(|e| e.to_latex())
+            .collect::<Vec<_>>()
+            .join(" \\\\ \n");
+        format!(
+            "\\node [block] (I_{}){}\n{{\n$I_{}$\\\\\n{}\n}};",
+            id,
+            if id > 0 {
+                if id % 2 == 0 {
+                    format!(" [below of = I_{}] ", id - 2)
+                } else {
+                    format!(" [right of = I_{}] ", id - 1)
+                }
+            } else {
+                String::new()
+            },
+            id,
+            content
+        )
+    }
+
+    pub fn edge_to_latex(&self, id: usize) -> String {
+        self.edges
+            .iter()
+            .map(|(e, v)| {
+                format!(
+                    "\\path [->] (I_{}) edge {} node [above]{{{}}} (I_{});",
+                    id,
+                    if id == *v { "[loop left]" } else { "[right]" },
+                    e,
+                    v
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+impl LRFSM {
+    pub fn to_latex(&self) -> String {
+        format!(
+            "\\begin{{tikzpicture}}[node distance=5cm,block/.style={{state, rectangle, text width=6em}}]\n{}\n\\end{{tikzpicture}}",
+            self.states
+                .iter()
+                .enumerate()
+                .map(|(i, s)| s.node_to_latex(i))
+                .chain(self.states.iter().enumerate().map(|(i,s)| s.edge_to_latex(i)))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
     }
 }
 
