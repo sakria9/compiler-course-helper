@@ -8,6 +8,23 @@ use super::{
     Grammar, EPSILON,
 };
 
+fn production_right_to_latex<'a>(
+    production: impl Iterator<Item = &'a str>,
+    terminal_set: &HashSet<&str>,
+) -> String {
+    production
+        .map(|s| {
+            if terminal_set.contains(s) {
+                format!("\\text{{{}}}", escape::tex(s))
+            } else {
+                escape::tex(s).to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" \\  ")
+        .replace(super::EPSILON, "\\epsilon")
+}
+
 #[derive(Debug, Clone)]
 pub struct ProductionOutput<'a> {
     pub left: &'a str,
@@ -34,36 +51,29 @@ impl ProductionOutput<'_> {
             .collect::<Vec<_>>()
             .join(if multiline { "\n" } else { "" })
     }
-    pub fn to_latex(&self, and_sign: bool) -> String {
+    pub fn to_latex(&self, and_sign: bool, terminal_set: &HashSet<&str>) -> String {
         if self.rights.len() == 0 {
             return String::new();
         }
 
-        let left = if and_sign {
-            format!("{} & \\rightarrow &", escape::tex(self.left)).to_string()
-        } else {
-            format!("{} \\rightarrow ", escape::tex(self.left)).to_string()
-        };
         let right = self
             .rights
             .iter()
-            .map(|right| {
-                right
-                    .iter()
-                    .map(|s| escape::tex(*s))
-                    .collect::<Vec<_>>()
-                    .join(" \\ ")
-            })
+            .map(|right| production_right_to_latex(right.iter().cloned(), terminal_set))
             .collect::<Vec<_>>()
             .join(" \\mid ");
 
-        let output = left + &right;
-        output.replace(super::EPSILON, "\\epsilon")
+        if and_sign {
+            format!("{} & \\rightarrow & {}", escape::tex(self.left), right)
+        } else {
+            format!("{} \\rightarrow {}", escape::tex(self.left), right)
+        }
     }
 }
 
 pub struct ProductionOutputVec<'a> {
     productions: Vec<ProductionOutput<'a>>,
+    terminal_set: HashSet<&'a str>,
 }
 
 impl ProductionOutputVec<'_> {
@@ -78,7 +88,11 @@ impl ProductionOutputVec<'_> {
 
     pub fn to_latex(&self) -> String {
         std::iter::once("\\[\\begin{array}{cll}".to_string())
-            .chain(self.productions.iter().map(|s| s.to_latex(true)))
+            .chain(
+                self.productions
+                    .iter()
+                    .map(|s| s.to_latex(true, &self.terminal_set)),
+            )
             .chain(std::iter::once("\\end{array}\\]".to_string()))
             .collect::<Vec<String>>()
             .join("\\\\\n")
@@ -101,7 +115,10 @@ impl Grammar {
                 });
             }
         }
-        ProductionOutputVec { productions }
+        ProductionOutputVec {
+            productions,
+            terminal_set: self.terminal_iter().map(|s| s.as_str()).collect(),
+        }
     }
 }
 
@@ -231,15 +248,20 @@ impl DotProduction {
 
         output
     }
-    pub fn to_latex(&self) -> String {
-        let mut right: Vec<String> = Vec::new();
-        for (i, s) in self.production.iter().enumerate() {
-            if i == self.position {
-                right.push(".".to_string());
-            }
-            right.push(escape::tex(s).to_string());
-        }
-        let right = right.join(" ").replace(super::EPSILON, "\\epsilon");
+    pub fn to_latex(&self, terminal_set: &HashSet<&str>) -> String {
+        let right = self
+            .production
+            .iter()
+            .map(|s| s.as_str())
+            .take(self.position)
+            .chain(std::iter::once("."))
+            .chain(
+                self.production
+                    .iter()
+                    .map(|s| s.as_str())
+                    .skip(self.position),
+            );
+        let right = production_right_to_latex(right, terminal_set);
 
         if let Some(lookahead) = &self.lookahead {
             let lookahead = lookahead
@@ -292,12 +314,12 @@ impl LRItem {
         format!("{}{}{}", kernel, extend, edges)
     }
 
-    pub fn node_to_latex(&self, id: usize) -> String {
+    pub fn node_to_latex(&self, id: usize, terminal_set: &HashSet<&str>) -> String {
         let content = self
             .kernel
             .iter()
             .chain(self.extend.iter())
-            .map(|e| e.to_latex())
+            .map(|e| e.to_latex(terminal_set))
             .collect::<Vec<_>>()
             .join(" \\\\ \n");
         format!(
@@ -348,12 +370,13 @@ impl LRFSM {
     }
 
     pub fn to_latex(&self) -> String {
+        let terminal_set: HashSet<&str> = self.terminals.iter().map(|s| s.as_str()).collect();
         format!(
             "\\begin{{tikzpicture}}[node distance=5cm,block/.style={{state, rectangle, text width=6em}}]\n{}\n\\end{{tikzpicture}}",
             self.states
                 .iter()
                 .enumerate()
-                .map(|(i, s)| s.node_to_latex(i))
+                .map(|(i, s)| s.node_to_latex(i, &terminal_set))
                 .chain(self.states.iter().enumerate().map(|(i,s)| s.edge_to_latex(i)))
                 .collect::<Vec<_>>()
                 .join("\n")
@@ -374,21 +397,13 @@ impl LRParsingTableAction {
         }
     }
 
-    pub fn to_latex(&self, terminal_set: &HashSet<&String>) -> String {
+    pub fn to_latex(&self, terminal_set: &HashSet<&str>) -> String {
         match self {
             LRParsingTableAction::Reduce(r) => {
                 format!(
                     "reduce ${} \\rightarrow {}$",
                     escape::tex(&r.0),
-                    r.1.iter()
-                        .map(|s| if terminal_set.contains(s) {
-                            format!("\\text{{{}}}", escape::tex(s))
-                        } else {
-                            escape::tex(s).to_string()
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" \\  ")
-                        .replace(super::EPSILON, "\\epsilon")
+                    production_right_to_latex(r.1.iter().map(|s| s.as_str()), terminal_set)
                 )
             }
             LRParsingTableAction::Shift(s) => {
@@ -462,7 +477,7 @@ impl LRParsingTable {
         }
         let first_row = first_row.join(" & ");
 
-        let terminal_set: HashSet<&String> = self.terminals.iter().collect();
+        let terminal_set: HashSet<&str> = self.terminals.iter().map(|s| s.as_str()).collect();
 
         for (r1, r2) in self.action.iter().zip(self.goto.iter()) {
             let i = content.len();

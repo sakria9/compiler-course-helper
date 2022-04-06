@@ -1,5 +1,5 @@
 use crowbook_text_processing::escape::tex as escape_tex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::Grammar;
 
@@ -54,9 +54,13 @@ impl LL1ParsingTable<'_> {
         let header = header.join(" & ");
 
         let mut output: Vec<String> = Vec::new();
+        let termintal_set: HashSet<&str> = self.terminals.iter().cloned().collect();
         for (left, row) in &self.rows {
             let mut line: Vec<String> = vec![format!("{}", escape_tex(*left))];
-            line.extend(row.iter().map(|productions| productions.to_latex(false)));
+            line.extend(
+                row.iter()
+                    .map(|productions| productions.to_latex(false, &termintal_set)),
+            );
             output.push(line.join(" & "));
         }
 

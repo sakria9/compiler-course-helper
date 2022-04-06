@@ -182,8 +182,8 @@ pub enum LRFSMType {
 #[derive(Debug)]
 pub struct LRFSM {
     pub t: LRFSMType,
-    terminals: Vec<String>,
-    non_terminals: Vec<String>,
+    pub(super) terminals: Vec<String>,
+    pub(super) non_terminals: Vec<String>,
 
     pub states: Vec<LRItem>,
     pub start: usize,
