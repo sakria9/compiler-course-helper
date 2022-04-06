@@ -277,7 +277,7 @@ impl DotProduction {
 }
 
 impl LRItem {
-    pub fn to_plaintext(&self) -> String {
+    pub fn to_plaintext(&self, is_end: bool) -> String {
         let kernel = self
             .kernel
             .iter()
@@ -298,12 +298,13 @@ impl LRItem {
             String::new()
         };
 
-        let edges = if self.edges.len() > 0 {
+        let edges = if self.edges.len() > 0 || is_end {
             format!(
                 "\n===\n{}",
                 self.edges
                     .iter()
                     .map(|(k, v)| format!("- {} -> {}", k, v))
+                    .chain(std::iter::once("- $ -> accept".to_string()))
                     .collect::<Vec<_>>()
                     .join("\n")
             )
@@ -362,24 +363,25 @@ impl LRFSM {
             .states
             .iter()
             .enumerate()
-            .map(|(i, s)| format!("I{}\n{}", i, s.to_plaintext()))
+            .map(|(i, s)| format!("I{}\n{}", i, s.to_plaintext(i == self.end)))
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        format!("{}\n\nstart: {}", states, self.start)
+        states
     }
 
     pub fn to_latex(&self) -> String {
         let terminal_set: HashSet<&str> = self.terminals.iter().map(|s| s.as_str()).collect();
         format!(
-            "\\begin{{tikzpicture}}[node distance=5cm,block/.style={{state, rectangle, text width=6em}}]\n{}\n\\end{{tikzpicture}}",
+            "\\begin{{tikzpicture}}[node distance=5cm,block/.style={{state, rectangle, text width=6em}}]\n{}\n\\node (accept) [right of = I_1] {{accept}};\n\\path [->] (I_{}) edge [right] node [above right]{{\\$}} (accept);\n\\end{{tikzpicture}}",
             self.states
                 .iter()
                 .enumerate()
                 .map(|(i, s)| s.node_to_latex(i, &terminal_set))
                 .chain(self.states.iter().enumerate().map(|(i,s)| s.edge_to_latex(i)))
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n"),
+                self.end
         )
     }
 }
