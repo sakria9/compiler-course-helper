@@ -1,20 +1,136 @@
 extern crate wasm_bindgen;
 
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 mod grammar;
+pub use grammar::lr_fsm::LRFSMType;
 pub use grammar::Grammar;
 
+#[derive(Serialize, Deserialize)]
+pub struct WasmArgs {
+    pub grammar: String,
+    pub actions: Vec<Action>,
+    pub outputs: Vec<Output>,
+}
+
+// This function is intended to be called from JavaScript.
+// Example:
+// {
+//     "grammar": "E -> E + T | T\nT -> T * F | F\nF -> ( E ) | id",
+//     "actions": ["EliminateLeftRecursion"],
+//     "outputs": [
+//         {"NonTerminal": "JSON"},
+//         {"Production": "JSON"},
+//         {"LL1ParsingTable": "JSON"},
+//         {"LRParsingTable": ["LR0", "JSON"]}
+//     ]
+// }
 #[wasm_bindgen]
-pub fn nullable_first_follow_to_json(grammar: &str) -> String {
-    let g = crate::Grammar::parse(grammar);
-    match g {
-        Ok(mut g) => {
-            g.calculate_nullable_first_follow();
-            g.to_non_terminal_output_vec().to_json()
+pub fn wasm_grammar_to_output(json: &str) -> String {
+    let args: WasmArgs = serde_json::from_str(json).unwrap();
+    let result = grammar_to_output(&args.grammar, &args.actions, &args.outputs);
+    serde_json::to_string(&result).unwrap()
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum Action {
+    EliminateLeftRecursion,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum Format {
+    Plain,
+    LaTeX,
+    JSON,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum Output {
+    Production(Format),
+    NonTerminal(Format),
+    LL1ParsingTable(Format),
+    LRFSM(LRFSMType, Format),
+    LRParsingTable(LRFSMType, Format),
+}
+
+impl Output {
+    pub fn format(&mut self, f: Format) {
+        match self {
+            Output::Production(format) => *format = f,
+            Output::NonTerminal(format) => *format = f,
+            Output::LL1ParsingTable(format) => *format = f,
+            Output::LRFSM(_, format) => *format = f,
+            Output::LRParsingTable(_, format) => *format = f,
         }
-        Err(e) => format!("{{\"error\":\"{}\"}}", e),
     }
+}
+
+pub fn grammar_to_output(
+    grammar: &str,
+    actions: &[Action],
+    outputs: &[Output],
+) -> Result<Vec<Result<String, String>>, String> {
+    let mut ret: Vec<Result<String, String>> = Vec::new();
+
+    let mut g = match Grammar::parse(grammar) {
+        Ok(g) => g,
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    for action in actions {
+        match action {
+            Action::EliminateLeftRecursion => g.eliminate_left_recursion(),
+        }
+    }
+
+    for output in outputs {
+        match output {
+            Output::Production(format) => {
+                let t = g.to_production_output_vec();
+                ret.push(Ok(match format {
+                    Format::Plain => t.to_plaintext(),
+                    Format::LaTeX => t.to_latex(),
+                    Format::JSON => serde_json::to_string(&t).unwrap(),
+                }));
+            }
+            Output::NonTerminal(format) => {
+                let t = g.to_non_terminal_output_vec();
+                ret.push(Ok(match format {
+                    Format::Plain => t.to_plaintext(),
+                    Format::LaTeX => t.to_latex(),
+                    Format::JSON => serde_json::to_string(&t).unwrap(),
+                }));
+            }
+            Output::LL1ParsingTable(format) => {
+                let t = g.generate_ll1_parsing_table();
+                ret.push(Ok(match format {
+                    Format::Plain => t.to_plaintext(),
+                    Format::LaTeX => t.to_latex(),
+                    Format::JSON => serde_json::to_string(&t).unwrap(),
+                }));
+            }
+            Output::LRFSM(typ, format) => ret.push(g.to_lr_fsm(*typ).and_then(|t| {
+                Ok(match format {
+                    Format::Plain => t.to_plaintext(),
+                    Format::LaTeX => t.to_latex(),
+                    Format::JSON => serde_json::to_string(&t).unwrap(),
+                })
+            })),
+            Output::LRParsingTable(typ, format) => ret.push(g.to_lr_fsm(*typ).and_then(|t| {
+                let t = t.to_parsing_table();
+                Ok(match format {
+                    Format::Plain => t.to_plaintext(),
+                    Format::LaTeX => t.to_latex(),
+                    Format::JSON => serde_json::to_string(&t).unwrap(),
+                })
+            })),
+        }
+    }
+
+    Ok(ret)
 }
 
 #[cfg(test)]

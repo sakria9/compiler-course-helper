@@ -1,6 +1,6 @@
 pub mod grammar;
-use grammar::lr_fsm::LRFSMType;
-use std::{fs, io::BufRead};
+use compiler_course_helper_lib::{grammar_to_output, Action, Format, LRFSMType, Output};
+use std::{collections::HashMap, fs, io::BufRead};
 
 pub use grammar::Grammar;
 
@@ -25,57 +25,75 @@ fn print_help() {
 }
 
 fn main() {
-    let mut actions: Vec<&str> = Vec::new();
-    let mut outputs: Vec<&str> = Vec::new();
+    let mut actions: Vec<Action> = Vec::new();
+    let mut outputs: Vec<Output> = Vec::new();
     let args = std::env::args().skip(1).collect::<Vec<String>>();
-    let mut i: usize = 0;
-    while i < args.len() && args[i] == "elf" {
-        actions.push(args[i].as_str());
-        i += 1;
-    }
-    while i < args.len()
-        && [
-            "prod",
-            "nff",
-            "ll1",
-            "lr0fsm",
-            "lr1fsm",
-            "lalrfsm",
+
+    let action_map: HashMap<&str, Action> = [("elf", Action::EliminateLeftRecursion)]
+        .iter()
+        .cloned()
+        .collect();
+    let output_map: HashMap<&str, Output> = [
+        ("prod", Output::Production(Format::Plain)),
+        ("nff", Output::NonTerminal(Format::Plain)),
+        ("ll1", Output::LL1ParsingTable(Format::Plain)),
+        ("lr0fsm", Output::LRFSM(LRFSMType::LR0, Format::Plain)),
+        ("lr1fsm", Output::LRFSM(LRFSMType::LR1, Format::Plain)),
+        ("lalrfsm", Output::LRFSM(LRFSMType::LALR, Format::Plain)),
+        (
             "lr0table",
+            Output::LRParsingTable(LRFSMType::LR0, Format::Plain),
+        ),
+        (
             "lr1table",
+            Output::LRParsingTable(LRFSMType::LR1, Format::Plain),
+        ),
+        (
             "lalrtable",
-        ]
-        .contains(&args[i].as_str())
-    {
-        outputs.push(args[i].as_str());
+            Output::LRParsingTable(LRFSMType::LALR, Format::Plain),
+        ),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    let mut i: usize = 0;
+    while i < args.len() && action_map.contains_key(args[i].as_str()) {
+        actions.push(action_map[args[i].as_str()]);
         i += 1;
     }
 
-    enum OutputFormat {
-        Plain,
-        LaTeX,
-        JSON,
+    while i < args.len() && output_map.contains_key(args[i].as_str()) {
+        outputs.push(output_map[args[i].as_str()]);
+        i += 1;
     }
-    let mut output_format = OutputFormat::Plain;
 
+    let mut output_format = Format::Plain;
     while i < args.len() && ["-h", "--help", "-l", "-j"].contains(&args[i].as_str()) {
         if args[i] == "-h" || args[i] == "--help" {
             print_help();
             return;
         } else if args[i] == "-l" {
-            output_format = OutputFormat::LaTeX;
+            output_format = Format::LaTeX;
         } else if args[i] == "-j" {
-            output_format = OutputFormat::JSON;
+            output_format = Format::JSON;
         }
         i += 1;
     }
+    let outputs: Vec<Output> = outputs
+        .into_iter()
+        .map(|mut o| {
+            o.format(output_format);
+            o
+        })
+        .collect();
 
     if i + 1 < args.len() || outputs.len() < 1 {
         print_help();
         return;
     }
 
-    let input: String = if i == args.len() {
+    let grammar: String = if i == args.len() {
         std::io::stdin()
             .lock()
             .lines()
@@ -86,113 +104,17 @@ fn main() {
         fs::read_to_string(args[i].as_str()).expect("Failed to read file")
     };
 
-    let mut g = Grammar::parse(&input).unwrap();
-
-    for action in actions {
-        if action == "elf" {
-            g.eliminate_left_recursion();
-        }
-    }
-
-    for output in outputs {
-        if output == "prod" {
-            let t = g.to_production_output_vec();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
+    match grammar_to_output(&grammar, &actions, &outputs) {
+        Ok(v) => {
+            for (i, e) in v.into_iter().enumerate() {
+                match e {
+                    Ok(o) => println!("{}", o),
+                    Err(e) => println!("Error {}-th output: {}", i, e),
                 }
-            );
+            }
         }
-        if output == "nff" {
-            let t = g.to_non_terminal_output_vec();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "ll1" {
-            let t = g.generate_ll1_parsing_table();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "lr0fsm" {
-            let t = g.to_lr_fsm(LRFSMType::LR0).unwrap();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "lr1fsm" {
-            let t = g.to_lr_fsm(LRFSMType::LR1).unwrap();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "lalrfsm" {
-            let t = g.to_lr_fsm(LRFSMType::LALR).unwrap();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "lr0table" {
-            let t = g.to_lr_fsm(LRFSMType::LR0).unwrap().to_parsing_table();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "lr1table" {
-            let t = g.to_lr_fsm(LRFSMType::LR1).unwrap().to_parsing_table();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
-        }
-        if output == "lalrtable" {
-            let t = g.to_lr_fsm(LRFSMType::LALR).unwrap().to_parsing_table();
-            println!(
-                "{}",
-                match output_format {
-                    OutputFormat::Plain => t.to_plaintext(),
-                    OutputFormat::LaTeX => t.to_latex(),
-                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
-                }
-            );
+        Err(e) => {
+            println!("ERROR! {}", e);
         }
     }
 }

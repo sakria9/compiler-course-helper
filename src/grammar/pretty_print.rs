@@ -173,9 +173,6 @@ impl NonTerminalOutputVec<'_> {
             .collect::<Vec<String>>()
             .join("\n")
     }
-    pub fn to_json(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
     pub fn to_latex(&self) -> String {
         let content = self
             .non_terminals
