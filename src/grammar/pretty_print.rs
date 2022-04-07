@@ -191,7 +191,11 @@ impl NonTerminalOutputVec<'_> {
 }
 
 impl Grammar {
-    pub fn to_non_terminal_output_vec(&self) -> NonTerminalOutputVec {
+    pub fn to_non_terminal_output_vec(&mut self) -> NonTerminalOutputVec {
+        if !self.is_nullable_first_follow_valid() {
+            self.calculate_nullable_first_follow();
+        }
+
         let mut data = Vec::new();
         for symbol in self.symbols.iter().skip(1) {
             // skip(1): skip epsilon
