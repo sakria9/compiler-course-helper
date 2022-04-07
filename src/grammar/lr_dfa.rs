@@ -1,10 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
+use serde::Serialize;
+
 use crate::Grammar;
 
 use super::{grammar::Symbol, END_MARK, EPSILON};
 
-#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Clone, Serialize)]
 pub struct DotProduction {
     pub left: String,
     pub production: Vec<String>,
@@ -41,7 +43,7 @@ impl DotProduction {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize)]
 pub struct LRItem {
     pub kernel: Vec<DotProduction>,
     pub extend: Vec<DotProduction>,
@@ -172,14 +174,14 @@ impl LRItem {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize)]
 pub enum LRFSMType {
     LR0,
     LR1,
     LALR,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct LRFSM {
     pub t: LRFSMType,
     pub(super) terminals: Vec<String>,
@@ -343,13 +345,14 @@ impl Grammar {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum LRParsingTableAction {
     Shift(usize),
     Reduce((String, Vec<String>)),
     Accept,
 }
 
+#[derive(Serialize)]
 pub struct LRParsingTable {
     pub t: LRFSMType,
     pub terminals: Vec<String>,

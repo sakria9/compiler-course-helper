@@ -1,10 +1,12 @@
 use crowbook_text_processing::escape::tex as escape_tex;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
 use crate::Grammar;
 
 use super::{pretty_print::ProductionOutput, EPSILON};
 
+#[derive(Serialize)]
 pub struct LL1ParsingTable<'a> {
     terminals: Vec<&'a str>,
     rows: Vec<(&'a str, Vec<ProductionOutput<'a>>)>,

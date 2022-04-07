@@ -21,6 +21,7 @@ fn print_help() {
     println!("options:");
     println!("  -h: Print this help");
     println!("  -l: Print in LaTeX format");
+    println!("  -j: Print in JSON format");
 }
 
 fn main() {
@@ -33,26 +34,38 @@ fn main() {
         i += 1;
     }
     while i < args.len()
-        && (args[i] == "prod"
-            || args[i] == "nff"
-            || args[i] == "ll1"
-            || args[i] == "lr0fsm"
-            || args[i] == "lr1fsm"
-            || args[i] == "lalrfsm"
-            || args[i] == "lr0table"
-            || args[i] == "lr1table"
-            || args[i] == "lalrtable")
+        && [
+            "prod",
+            "nff",
+            "ll1",
+            "lr0fsm",
+            "lr1fsm",
+            "lalrfsm",
+            "lr0table",
+            "lr1table",
+            "lalrtable",
+        ]
+        .contains(&args[i].as_str())
     {
         outputs.push(args[i].as_str());
         i += 1;
     }
-    let mut is_latex = false;
-    while i < args.len() && (args[i] == "-h" || args[i] == "--help" || args[i] == "-l") {
+
+    enum OutputFormat {
+        Plain,
+        LaTeX,
+        JSON,
+    }
+    let mut output_format = OutputFormat::Plain;
+
+    while i < args.len() && ["-h", "--help", "-l", "-j"].contains(&args[i].as_str()) {
         if args[i] == "-h" || args[i] == "--help" {
             print_help();
             return;
-        } else {
-            is_latex = true;
+        } else if args[i] == "-l" {
+            output_format = OutputFormat::LaTeX;
+        } else if args[i] == "-j" {
+            output_format = OutputFormat::JSON;
         }
         i += 1;
     }
@@ -86,10 +99,10 @@ fn main() {
             let t = g.to_production_output_vec();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -97,10 +110,10 @@ fn main() {
             let t = g.to_non_terminal_output_vec();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -108,10 +121,10 @@ fn main() {
             let t = g.generate_ll1_parsing_table();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -119,10 +132,10 @@ fn main() {
             let t = g.to_lr_fsm(LRFSMType::LR0).unwrap();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -130,10 +143,10 @@ fn main() {
             let t = g.to_lr_fsm(LRFSMType::LR1).unwrap();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -141,10 +154,10 @@ fn main() {
             let t = g.to_lr_fsm(LRFSMType::LALR).unwrap();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -152,10 +165,10 @@ fn main() {
             let t = g.to_lr_fsm(LRFSMType::LR0).unwrap().to_parsing_table();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -163,10 +176,10 @@ fn main() {
             let t = g.to_lr_fsm(LRFSMType::LR1).unwrap().to_parsing_table();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }
@@ -174,10 +187,10 @@ fn main() {
             let t = g.to_lr_fsm(LRFSMType::LALR).unwrap().to_parsing_table();
             println!(
                 "{}",
-                if is_latex {
-                    t.to_latex()
-                } else {
-                    t.to_plaintext()
+                match output_format {
+                    OutputFormat::Plain => t.to_plaintext(),
+                    OutputFormat::LaTeX => t.to_latex(),
+                    OutputFormat::JSON => serde_json::to_string(&t).unwrap(),
                 }
             );
         }

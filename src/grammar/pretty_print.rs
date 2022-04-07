@@ -1,12 +1,11 @@
 use std::collections::HashSet;
 
-use crowbook_text_processing::escape;
-use serde::Serialize;
-
 use super::{
     lr_dfa::{DotProduction, LRItem, LRParsingTable, LRParsingTableAction, LRFSM},
     Grammar, EPSILON,
 };
+use crowbook_text_processing::escape;
+use serde::Serialize;
 
 fn production_right_to_latex<'a>(
     production: impl Iterator<Item = &'a str>,
@@ -25,7 +24,7 @@ fn production_right_to_latex<'a>(
         .replace(super::EPSILON, "\\epsilon")
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ProductionOutput<'a> {
     pub left: &'a str,
     pub rights: Vec<Vec<&'a str>>,
@@ -71,6 +70,7 @@ impl ProductionOutput<'_> {
     }
 }
 
+#[derive(Serialize)]
 pub struct ProductionOutputVec<'a> {
     productions: Vec<ProductionOutput<'a>>,
     terminal_set: HashSet<&'a str>,
@@ -161,12 +161,13 @@ impl NonTerminalOutput<'_> {
 
 #[derive(Serialize)]
 pub struct NonTerminalOutputVec<'a> {
-    data: Vec<NonTerminalOutput<'a>>,
+    non_terminals: Vec<NonTerminalOutput<'a>>,
+    terminal_set: HashSet<&'a str>,
 }
 
 impl NonTerminalOutputVec<'_> {
     pub fn to_plaintext(&self) -> String {
-        self.data
+        self.non_terminals
             .iter()
             .map(|s| s.to_plaintext())
             .collect::<Vec<String>>()
@@ -177,7 +178,7 @@ impl NonTerminalOutputVec<'_> {
     }
     pub fn to_latex(&self) -> String {
         let content = self
-            .data
+            .non_terminals
             .iter()
             .map(|e| e.to_latex())
             .collect::<Vec<_>>()
@@ -223,7 +224,10 @@ impl Grammar {
                 data.push(t);
             }
         }
-        NonTerminalOutputVec { data }
+        NonTerminalOutputVec {
+            non_terminals: data,
+            terminal_set: self.terminal_iter().map(|s| s.as_str()).collect(),
+        }
     }
 }
 
