@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use super::{
-    lr_dfa::{DotProduction, LRItem, LRParsingTable, LRParsingTableAction, LRFSM},
+    lr_fsm::{DotProduction, LRItem, LRParsingTable, LRParsingTableAction, LRFSM},
     Grammar, EPSILON,
 };
 use crowbook_text_processing::escape;

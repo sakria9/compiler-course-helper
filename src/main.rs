@@ -1,5 +1,5 @@
 pub mod grammar;
-use grammar::lr_dfa::LRFSMType;
+use grammar::lr_fsm::LRFSMType;
 use std::{fs, io::BufRead};
 
 pub use grammar::Grammar;
