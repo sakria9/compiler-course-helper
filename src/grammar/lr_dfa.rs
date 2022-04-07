@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use crate::Grammar;
 
@@ -45,7 +45,7 @@ impl DotProduction {
 pub struct LRItem {
     pub kernel: Vec<DotProduction>,
     pub extend: Vec<DotProduction>,
-    pub edges: HashMap<String, usize>,
+    pub edges: BTreeMap<String, usize>,
 }
 
 impl LRItem {
@@ -156,7 +156,7 @@ impl LRItem {
         Self {
             kernel,
             extend: Vec::new(),
-            edges: HashMap::new(),
+            edges: BTreeMap::new(),
         }
     }
 
@@ -220,7 +220,7 @@ impl Grammar {
         let mut end: usize = 0;
 
         while let Some(u) = q.pop_front() {
-            let mut edges: HashMap<String, HashSet<DotProduction>> = HashMap::new();
+            let mut edges: BTreeMap<String, BTreeSet<DotProduction>> = BTreeMap::new();
 
             let productions = states[u].kernel.iter().chain(states[u].extend.iter());
             for production in productions {
@@ -233,7 +233,7 @@ impl Grammar {
 
                 if production.position < production.production.len() {
                     let e = production.production[production.position].clone();
-                    let item = edges.entry(e).or_insert(HashSet::new());
+                    let item = edges.entry(e).or_insert(BTreeSet::new());
                     item.insert(production.generate_next());
                 }
             }
