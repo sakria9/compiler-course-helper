@@ -1,14 +1,11 @@
-pub mod grammar;
-use compiler_course_helper_lib::{grammar_to_output, Action, Format, LRFSMType, Output};
+use compiler_course_helper::{grammar_to_output, Action, Format, LRFSMType, Output};
 use std::{collections::HashMap, fs, io::BufRead};
 
-pub use grammar::Grammar;
-
 fn print_help() {
-    println!("Usage: compiler-course-helper [actions] outputs [options] [grammar file]");
-    println!("actions:");
+    println!("Usage: compiler-course-helper [action]... output... [option] [grammar file]");
+    println!("action:");
     println!("  elf: Eliminate left recursion");
-    println!("outputs:");
+    println!("output:");
     println!("  prod: Productions");
     println!("  nff: Nullable first and follow");
     println!("  ll1: LL(1) parsing table");
@@ -18,7 +15,7 @@ fn print_help() {
     println!("  lr0table: LR(0) parsing table");
     println!("  lr1table: LR(1) parsing table");
     println!("  lalrtable: LALR parsing table");
-    println!("options:");
+    println!("option:");
     println!("  -h: Print this help");
     println!("  -l: Print in LaTeX format");
     println!("  -j: Print in JSON format");

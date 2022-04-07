@@ -1,5 +1,5 @@
 [package]
-name = "compiler-course-helper-lib"
+name = "compiler-course-helper"
 description = "A tool & library to help you with the compiler course."
 version = "0.1.0"
 authors = ["zuyumi <zuyumi@sustech.moe>"]
